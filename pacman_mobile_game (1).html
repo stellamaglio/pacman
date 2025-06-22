@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pac-Man Mobile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    canvas {
+      background: #000;
+      image-rendering: pixelated;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="1280" height="576"></canvas>
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const tileSize = 64;
+    const map = [
+      "####################",
+      "#........##........#",
+      "#.####.#.##.#.####.#",
+      "#o#  #.#.##.#.#  #o#",
+      "#.####.#.##.#.####.#",
+      "#..................#",
+      "#.####.######.####.#",
+      "#..................#",
+      "####################"
+    ];
+    const rows = map.length;
+    const cols = map[0].length;
+
+    const pacman = {
+      x: 1 * tileSize,
+      y: 1 * tileSize,
+      dx: 0,
+      dy: 0,
+      speed: 2.5,
+      nextDx: 0,
+      nextDy: 0,
+      angle: 0
+    };
+
+    const ghosts = [
+      { x: 18 * tileSize, y: 1 * tileSize, dx: 0, dy: 1, color: 'red', speed: 1.8 },
+      { x: 18 * tileSize, y: 7 * tileSize, dx: -1, dy: 0, color: 'pink', speed: 1.8 },
+      { x: 1 * tileSize, y: 7 * tileSize, dx: 1, dy: 0, color: 'cyan', speed: 1.8 }
+    ];
+
+    function drawTile(x, y, c) {
+      if (c === "#") {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+      } else if (c === ".") {
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(x * tileSize + tileSize/2, y * tileSize + tileSize/2, 8, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (c === "o") {
+        ctx.fillStyle = "orange";
+        ctx.beginPath();
+        ctx.arc(x * tileSize + tileSize/2, y * tileSize + tileSize/2, 12, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          drawTile(x, y, map[y][x]);
+        }
+      }
+      // Pacman
+      ctx.save();
+      ctx.translate(pacman.x + tileSize / 2, pacman.y + tileSize / 2);
+      ctx.rotate(pacman.angle);
+      ctx.fillStyle = "yellow";
+      ctx.beginPath();
+      ctx.arc(0, 0, tileSize / 2 - 4, 0.25 * Math.PI, 1.75 * Math.PI);
+      ctx.lineTo(0, 0);
+      ctx.fill();
+      ctx.restore();
+      // Ghosts
+      for (const g of ghosts) {
+        ctx.fillStyle = g.color;
+        ctx.beginPath();
+        ctx.arc(g.x + tileSize / 2, g.y + tileSize / 2, tileSize / 2 - 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function move(entity) {
+      const newX = entity.x + entity.dx * entity.speed;
+      const newY = entity.y + entity.dy * entity.speed;
+      const col = Math.floor((newX + tileSize / 2) / tileSize);
+      const row = Math.floor((newY + tileSize / 2) / tileSize);
+      if (map[row][col] !== "#") {
+        entity.x = newX;
+        entity.y = newY;
+      } else {
+        entity.dx = 0;
+        entity.dy = 0;
+      }
+    }
+
+    function update() {
+      // Change direction if possible
+      const nextCol = Math.floor((pacman.x + pacman.nextDx * pacman.speed + tileSize / 2) / tileSize);
+      const nextRow = Math.floor((pacman.y + pacman.nextDy * pacman.speed + tileSize / 2) / tileSize);
+      if (map[nextRow][nextCol] !== "#") {
+        pacman.dx = pacman.nextDx;
+        pacman.dy = pacman.nextDy;
+        if (pacman.dx === 1) pacman.angle = 0;
+        if (pacman.dx === -1) pacman.angle = Math.PI;
+        if (pacman.dy === -1) pacman.angle = -0.5 * Math.PI;
+        if (pacman.dy === 1) pacman.angle = 0.5 * Math.PI;
+      }
+      move(pacman);
+
+      ghosts.forEach(g => {
+        if (Math.random() < 0.02) {
+          const dirs = [
+            { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+            { dx: 0, dy: 1 }, { dx: 0, dy: -1 }
+          ];
+          const d = dirs[Math.floor(Math.random() * dirs.length)];
+          g.dx = d.dx;
+          g.dy = d.dy;
+        }
+        move(g);
+        if (Math.abs(g.x - pacman.x) < tileSize/2 && Math.abs(g.y - pacman.y) < tileSize/2) {
+          alert("Hai perso!");
+          location.reload();
+        }
+      });
+
+      const col = Math.floor((pacman.x + tileSize/2) / tileSize);
+      const row = Math.floor((pacman.y + tileSize/2) / tileSize);
+      if (map[row][col] === "." || map[row][col] === "o") {
+        map[row] = map[row].substring(0, col) + " " + map[row].substring(col + 1);
+      }
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Touch controls
+    let startX = 0, startY = 0;
+    canvas.addEventListener("touchstart", e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    });
+    canvas.addEventListener("touchend", e => {
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        pacman.nextDx = dx > 0 ? 1 : -1;
+        pacman.nextDy = 0;
+      } else {
+        pacman.nextDy = dy > 0 ? 1 : -1;
+        pacman.nextDx = 0;
+      }
+    });
+
+    gameLoop();
+  </script>
+</body>
+</html>
